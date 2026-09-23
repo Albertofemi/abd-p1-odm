@@ -14,17 +14,100 @@
 # Este fichero es un EJEMPLO con un solo modelo. Hay que sustituirlo por los
 # cuatro modelos de EnVivo: recinto, artista, evento y asistente.
 
-Recinto:
+
+#EXAMPLE
+#Recinto:
+#  required_vars:
+#    - nombre
+#    - direccion
+#    - aforo
+#  admissible_vars:
+#    - zonas
+#    - servicios
+#    - direccion_loc
+#  unique_indexes:
+#    - nombre
+#  regular_indexes:
+#    - aforo
+#  location_index: direccion
+
+
+#Venue
+Venue:
   required_vars:
-    - nombre
-    - direccion
-    - aforo
+    - name
+    - address
+    - total capacity
+    - area
   admissible_vars:
-    - zonas
-    - servicios
-    - direccion_loc
+    - number_seats
+    - available services
   unique_indexes:
-    - nombre
+    - name
   regular_indexes:
-    - aforo
-  location_index: direccion
+    - total capacity
+    - area
+  location_index: address
+
+
+#Artist
+Artist:
+  required_vars:
+    - name
+    - genres
+  admissible_vars:
+    - origin
+    - started_year
+  unique_indexes:
+    - name
+  regular_indexes:
+    - genres
+    - origin
+    - started_year
+  location_index: ?
+  
+#Event
+Event:
+  required_vars:
+    - title
+    - venue
+    - date
+    - time
+  admissible_vars:
+    - participating_artists
+    - price_area
+    - tickets_sold
+  unique_indexes:
+    - title
+  regular_indexes:
+    - participating_artists
+    - price_area
+    - tickets_sold
+    - venue
+    - date
+    - time
+  location_index: ?
+
+#Attendee
+Attendee:
+  required_vars:
+    - name
+    - email
+    - registration_date
+  admissible_vars:
+    - address
+    - genres_preferences
+  unique_indexes:
+    - name
+    - email
+  regular_indexes:
+    - registration_date
+    - address
+    - genres_preferences
+  location_index: address
+
+
+
+
+
+
