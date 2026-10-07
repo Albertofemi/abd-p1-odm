@@ -53,7 +53,7 @@ def getLocationPoint(address: str) -> Point:
         # point.
 
         raise ValueError(
-            f"No se pudieron obtener coordenadas para la direccion: {address!r}"
+            f"Coordinate were not found for address: {address!r}"
         )
 
     # GeoJSON represents points as (longitude, latitude), the reverse of
