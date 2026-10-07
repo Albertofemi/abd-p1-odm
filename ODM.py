@@ -30,25 +30,33 @@ def getLocationPoint(address: str) -> Point:
             Coordinates of the address point.
     """
     location = None
-    intentos = 0
-    maxIntentos = 5
-    while location is None and intentos < maxIntentos:
-        intentos += 1
+    attempts = 0
+    maxAttempts = 5
+
+    while location is None and attempts < maxAttempts:
+        attempts += 1
         try:
             time.sleep(1)
-            #TODO
-            # Es necesario proporcionar un user_agent para utilizar la API
-            # Utilizar un nombre aleatorio para el user_agent
-            location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
+            # Changed: the skeleton had a placeholder user_agent; Nominatim
+            # just needs some identifying string, not a real name.
+            location = Nominatim(user_agent="envivo-utad-abd-app").geocode(address)
         except GeocoderTimedOut:
-            # Puede lanzar una excepcion si se supera el tiempo de espera
-            # Volver a intentarlo
+            # May raise if the request times out. We just retry on the
+            # next pass of the while loop.
             continue
-    #TODO
-    # Return a GeoJSON Point with the stored latitude and longitude.
-    # If coordinates could not be obtained, raise a ValueError: the function
-    # cannot return a made-up point or silently return None. This is what
-    # the test_get_location_point_timeout_failure test expects.
+
+    if location is None:
+        # Do not invent a point and do not return None: Phase 2 needs to
+        # be able to tell "could not be geolocated" apart from a valid
+        # point.
+
+        raise ValueError(
+            f"Coordinate were not found for address: {address!r}"
+        )
+
+    # GeoJSON represents points as (longitude, latitude), the reverse of
+    # geopy's location.latitude / location.longitude.
+    return Point((location.longitude, location.latitude))
 
 class Model:
     """ 
