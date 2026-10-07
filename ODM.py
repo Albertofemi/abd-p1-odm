@@ -37,7 +37,8 @@ def getLocationPoint(address: str) -> Point:
         attempts += 1
         try:
             time.sleep(1)
-            # Changed: the skeleton had a placeholder user_agent; Nominatim
+            #TODO 
+            #the skeleton had a placeholder user_agent; Nominatim
             # just needs some identifying string, not a real name.
             location = Nominatim(user_agent="envivo-utad-abd-app").geocode(address)
         except GeocoderTimedOut:
@@ -260,7 +261,7 @@ class Model:
         pass
 
     @classmethod
-    def init_class(cls, db_collection: pymongo.collection.Collection, indexes:dict[str,str], required_vars: set[str], admissible_vars: set[str], location_var : None) -> None:
+    def init_class(cls, db_collection: pymongo.collection.Collection, indexes:dict[str,str], required_vars: set[str], admissible_vars: set[str]) -> None:
         """ 
         Initializes class attributes during system initialization.
         Indexes should be initialized or verified here. Any other
@@ -279,14 +280,34 @@ class Model:
                 Set of attributes accepted by the model.
         """
         cls._db = db_collection
-        cls._required_vars = required_vars
-        cls._admissible_vars = admissible_vars
+
+        cls._required_vars = set(required_vars)
+        
+        cls._admissible_vars = set(admissible_vars) | cls._required_vars
+        cls._admissible_vars.add("_id")
+
+        cls._location_var = None
+
         # TODO
         # Iterate through indexes and create each one based on its type: 'unique', 'asc',
         # or 'geosphere'. Compare the type for equality, not using the 'in' operator.
         # Pay attention to the geospatial index: save() stores the GeoJSON Point in
         # <field>_loc, so the 2dsphere index is applied to <field>_loc, whereas
         # _location_var must store the name of the base field.
+        if indexes is not None and cls._db is not None :
+            for field, index_type in indexes.items():
+                if index_type == "unique":
+                    cls._db.create_index([(field, pymongo.ASCENDING)], unique=True)
+                elif index_type == "asc":
+                    cls._db.create_index([(field, pymongo.ASCENDING)])
+
+
+                elif index_type in ("geosphere", "2dsphere"):
+                    cls._location_var = field
+                    loc_field = f"{field}_loc"
+                    cls._admissible_vars.add(loc_field)
+                    cls._db.create_index([(loc_field, pymongo.GEOSPHERE)])
+
 
 
 class ModelCursor:
@@ -370,9 +391,17 @@ def initApp(definitions_path: str = "./models_test.yml", mongodb_uri="mongodb://
         name = model_name
         required_vars = model_info.get("required_vars", [])
         admissible_vars = model_info.get("admissible_vars", [])
+        
         indexes = model_info.get("indexes", {})
-        location_var = model_info.get("location_var", None)
-
+        if not indexes:
+            indexes = {}
+            if "location_index" in model_info:
+                indexes[model_info["location_index"]] = "geosphere"
+            for field in model_info.get("unique_indexes", []):
+                indexes[field] = "unique"
+            for field in model_info.get("regular_indexes", []):
+                indexes[field] = "asc"
+        
         scope[name] = type(name, (Model,),{})
 
         # The class is declared at runtime and exists within a specific scope—which
@@ -380,7 +409,7 @@ def initApp(definitions_path: str = "./models_test.yml", mongodb_uri="mongodb://
         # dictionary. That is why it is initialized via the scope rather than
         # by name, since the name does not yet exist at that point.
         #scope["MiModelo"].init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
-        scope[name].init_class(db_collection=db[name], indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars, location_var=location_var)
+        scope[name].init_class(db_collection=db[name], indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars,)
 
 if __name__ == '__main__':
     
