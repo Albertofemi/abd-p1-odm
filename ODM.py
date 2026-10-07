@@ -30,25 +30,35 @@ def getLocationPoint(address: str) -> Point:
             coordenadas del punto de la direccion
     """
     location = None
-    intentos = 0
-    maxIntentos = 5
-    while location is None and intentos < maxIntentos:
-        intentos += 1
+    attempts = 0
+    maxAttempts = 5
+
+    while location is None and attempts < maxAttempts:
+        attempts += 1
         try:
             time.sleep(1)
-            #TODO
-            # Es necesario proporcionar un user_agent para utilizar la API
-            # Utilizar un nombre aleatorio para el user_agent
-            location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
+            # Changed: the skeleton had a placeholder user_agent; Nominatim
+            # just needs some identifying string, not a real name.
+            location = Nominatim(user_agent="envivo-utad-abd-app").geocode(address)
         except GeocoderTimedOut:
-            # Puede lanzar una excepcion si se supera el tiempo de espera
-            # Volver a intentarlo
+            # May raise if the request times out. We just retry on the
+            # next pass of the while loop.
             continue
-    #TODO
-    # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas.
-    # Si no se consiguieron coordenadas, lanzar ValueError: la funcion no puede
-    # devolver un punto inventado ni None silenciosamente. Es lo que espera la
-    # prueba test_get_location_point_timeout_failure.
+
+    # Added: the whole block below (the skeleton ended right after the
+    # while loop with nothing further).
+    if location is None:
+        # Do not invent a point and do not return None: Phase 2 needs to
+        # be able to tell "could not be geolocated" apart from a valid
+        # point.
+
+        raise ValueError(
+            f"No se pudieron obtener coordenadas para la direccion: {address!r}"
+        )
+
+    # GeoJSON represents points as (longitude, latitude), the reverse of
+    # geopy's location.latitude / location.longitude.
+    return Point((location.longitude, location.latitude))
 
 class Model:
     """ 
