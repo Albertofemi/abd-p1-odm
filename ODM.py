@@ -52,7 +52,7 @@ def getLocationPoint(address: str) -> Point:
         # point.
 
         raise ValueError(
-            f"Coordinate were not found for address: {address!r}"
+            f"No se pudieron obtener coordenadas: {address!r}"
         )
 
     # GeoJSON represents points as (longitude, latitude), the reverse of
@@ -199,8 +199,9 @@ class Model:
         """
         Deletes the model from the database.
         """
-        #TODO
-        pass
+        if '_id' in self._data:
+            self._db.delete_one({'_id': self._data['_id']})
+            del self._data['_id']
     
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
