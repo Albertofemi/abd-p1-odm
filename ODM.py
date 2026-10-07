@@ -131,6 +131,8 @@ class Model:
             if require not in keys:
                 raise ValueError(f"Required values {require} is missing")
         
+        self._modified_vars = set() #initialise modified_vars
+
         self._data: dict[str, str | dict | list] = {}
         
         self._data.update(kwargs)
@@ -141,7 +143,7 @@ class Model:
         and when.
         """
         # If name is an Model parameters
-        if name in self._internal_vars:
+        if name in self._internal_vars or name.startswith("_"):
             super().__setattr__(name, value)
             return
         #TODO
@@ -150,8 +152,14 @@ class Model:
         if name not in self._admissible_vars:
                 raise ValueError(f"Value {name} not in admissibles values")
         
+        if "_data" not in self.__dict__:
+            super().__setattr__("_data", {})
+
+        if "_modified_vars" not in self.__dict__:
+            super().__setattr__("_modified_vars", set())
+
         #Save the modification in _modified_vars
-        self._modified_vars(name)
+        self._modified_vars.add(name)
 
         # Assign the value `value` to the variable `name`
         self._data[name] = value
@@ -177,13 +185,24 @@ class Model:
         values.
         """
         #TODO
-        #ADD check if needs the location !!!
-        #This document has already a _data ?
-        if "_id" in self._data :
-            self._db.update_one(
+        #Convert the location into GeoLocation with Geopy API
+        if self._location_var and self._location_var in self._data:
+            address_str = self._data[self._location_var]
+            if isinstance(address_str, str) and address_str:
+                # Generate GeoJSON point and save in <field>_loc
+                point_geojson = getLocationPoint(address_str)
+                loc_field = f"{self._location_var}_loc"
+                self._data[loc_field] = point_geojson
+
+        #If This document has already a _data
+        if "_id" in self._data and self._data["_id"] is not None:
+            update_data = {k: v for k, v in self._data.items() if k != "_id"}
+            if update_data:
+                self._db.update_one(
                 {"_id": self._data["_id"]},
-                {"$set": self._data}
+                {"$set": update_data}
                 )
+
         #If new  == no _data
         else:
             result_insert = self._db.insert_one(self._data)
@@ -191,9 +210,8 @@ class Model:
             #Save the id created by the insertion
             self._data["_id"] = result_insert.inserted_id
 
-
-
-        #pass #Don't forget to remove this line once implemented
+        if hasattr(self, "_modified_vars"):
+            self._modified_vars.clear()
 
     def delete(self) -> None:
         """
