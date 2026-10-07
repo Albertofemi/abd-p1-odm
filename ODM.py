@@ -45,8 +45,6 @@ def getLocationPoint(address: str) -> Point:
             # next pass of the while loop.
             continue
 
-    # Added: the whole block below (the skeleton ended right after the
-    # while loop with nothing further).
     if location is None:
         # Do not invent a point and do not return None: Phase 2 needs to
         # be able to tell "could not be geolocated" apart from a valid
