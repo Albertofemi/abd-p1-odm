@@ -16,18 +16,18 @@ import yaml
 
 def getLocationPoint(address: str) -> Point:
     """ 
-    Obtiene las coordenadas de una dirección en formato geojson.Point
-    Utilizar la API de geopy para obtener las coordenadas de la direccion
-    Cuidado, la API es publica tiene limite de peticiones, utilizar sleeps.
+    Obtain the coordinates of an address in geojson.Point format.
+    Use the geopy API to retrieve the address coordinates.
+    Note: The API is public and has request limits; use sleep intervals.
 
     Parameters
     ----------
         address : str
-            direccion completa de la que obtener las coordenadas
+            Full address for which to obtain coordinates.
     Returns
     -------
         geojson.Point
-            coordenadas del punto de la direccion
+            Coordinates of the address point.
     """
     location = None
     attempts = 0
@@ -60,42 +60,40 @@ def getLocationPoint(address: str) -> Point:
 
 class Model:
     """ 
-    Clase de modelo abstracta
-    Crear tantas clases que hereden de esta clase como  
-    colecciones/modelos se deseen tener en la base de datos.
+    Abstract model class
+    Create as many subclasses of this class as there are  
+    collections/models desired in the database.
 
     Attributes
     ----------
         required_vars : set[str]
-            conjunto de atributos requeridos por el modelo
+            set of attributes required by the model
         admissible_vars : set[str]
-            conjunto de atributos admitidos por el modelo
+            set of attributes accepted by the model
         db : pymongo.collection.Collection
-            conexion a la coleccion de la base de datos
+            connection to the database collection
     
     Methods
     -------
         __setattr__(name: str, value: str | dict) -> None
-            Sobreescribe el metodo de asignacion de valores a los 
-            atributos del objeto con el fin de controlar qué atributos 
-            son modificados y cuando son modificados.
+            Overrides the method for assigning values ​​to object attributes
+            to control which attributes are modified and when.
         __getattr__(name: str) -> Any
-            Sobreescribe el metodo de acceso a atributos del objeto 
-        save()  -> None
-            Guarda el modelo en la base de datos
+            Overrides the method for accessing object attributes.
+        save() -> None
+            Saves the model to the database.
         delete() -> None
-            Elimina el modelo de la base de datos
+            Deletes the model from the database.
         find(filter: dict[str, str | dict]) -> ModelCursor
-            Realiza una consulta de lectura en la BBDD.
-            Devuelve un cursor de modelos ModelCursor
+            Performs a read query on the database.
+            Returns a ModelCursor.
         aggregate(pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor
-            Devuelve el resultado de una consulta aggregate.
+            Returns the result of an aggregate query.
         find_by_id(id: str) -> dict | None
-            Busca un documento por su id utilizando la cache y lo devuelve.
-            Si no se encuentra el documento, devuelve None.
+            Searches for a document by its ID using the cache and returns it.
+            Returns None if the document is not found.
         init_class(db_collection: pymongo.collection.Collection, required_vars: set[str], admissible_vars: set[str]) -> None
-            Inicializa las variables de clase en la inicializacion del sistema.
-
+            Initializes class variables during system initialization.
     """
     _required_vars: set[str]
     _admissible_vars: set[str]
@@ -105,47 +103,62 @@ class Model:
 
     def __init__(self, **kwargs: dict[str, str | dict | list]) -> None:
         """
-        Inicializa el modelo con los valores proporcionados en kwargs
-        Comprueba que los valores proporcionados en kwargs son admitidos
-        por el modelo y que las atributos requeridos son proporcionadas.
+        Initializes the model with the values ​​provided in kwargs.
+        Verifies that the values ​​provided in kwargs are supported
+        by the model and that the required attributes are provided.
 
         Parameters
         ----------
             kwargs : dict[str, str | dict]
-                diccionario con los valores de las atributos del modelo
+                Dictionary containing the model attribute values.
         """
-        self._data: dict[str, str | dict | list] = {}
         #TODO
-        # Realizar las comprabociones y gestiones necesarias
-        # antes de la asignacion.
-
-        # Asigna todos los valores en kwargs a las atributos con 
-        # nombre las claves en kwargs
-        # Utilizamos el atributo data para guardar los variables 
-        # almacenadas en la base de datos en una solo atributo
-        # Encapsular los datos en una sola variable facilita la 
-        # gestion en metodos como save.
+        # Perform necessary checks and operations
+        # before assignment.
+        # Assign all values ​​in kwargs to attributes named 
+        # after the keys in kwargs.
+        # We use the 'data' attribute to store database-stored 
+        # variables within a single attribute.
+        # Encapsulating the data in a single variable simplifies 
+        # management in methods such as 'save'.
+        keys = set(kwargs.keys())
+        for key in keys :
+            if key not in self._admissible_vars:
+                raise ValueError(f"Value {key} not in admissibles values")
+        
+        for require in self._required_vars:
+            if require not in keys:
+                raise ValueError(f"Required values {require} is missing")
+        
+        self._data: dict[str, str | dict | list] = {}
+        
         self._data.update(kwargs)
 
     def __setattr__(self, name: str, value: str | dict) -> None:
-        """ Sobreescribe el metodo de asignacion de valores a los 
-        atributos del objeto con el fin de controlar que atributos 
-        son modificados y cuando son modificados.
+        """ Overrides the method for assigning values ​​to the object's 
+        attributes in order to control which attributes are modified 
+        and when.
         """
+        # If name is an Model parameters
         if name in self._internal_vars:
             super().__setattr__(name, value)
             return
         #TODO
-        # Realizar las comprabociones y gestiones necesarias
-        # antes de la asignacion.
+        # Carry out the necessary checks and arrangements
+        # before the assignment.
+        if name not in self._admissible_vars:
+                raise ValueError(f"Value {name} not in admissibles values")
+        
+        #Save the modification in _modified_vars
+        self._modified_vars(name)
 
-        # Asigna el valor value a la variable name
+        # Assign the value `value` to the variable `name`
         self._data[name] = value
 
     def __getattr__(self, name: str) -> Any:
-        """ Sobreescribe el metodo de acceso a atributos del objeto
-        __getattr__ solo es llamado cuando no encuentra el atributo
-        en el objeto 
+        """ Overrides the object's attribute access method;
+        __getattr__ is only called when the attribute is not found
+        on the object.
         """
         if name in self._internal_vars:
             return super().__getattribute__(name)
@@ -156,18 +169,34 @@ class Model:
         
     def save(self) -> None:
         """
-        Guarda el modelo en la base de datos
-        Si el modelo no existe en la base de datos, se crea un nuevo
-        documento con los valores del modelo. En caso contrario, se
-        actualiza el documento existente con los nuevos valores del
-        modelo.
+        Saves the model to the database.
+        If the model does not exist in the database, a new
+        document is created with the model's values. Otherwise, the
+        existing document is updated with the new model
+        values.
         """
         #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        #ADD check if needs the location !!!
+        #This document has already a _data ?
+        if "_id" in self._data :
+            self._db.update_one(
+                {"_id": self._data["_id"]},
+                {"$set": self._data}
+                )
+        #If new  == no _data
+        else:
+            result_insert = self._db.insert_one(self._data)
+            
+            #Save the id created by the insertion
+            self._data["_id"] = result_insert.inserted_id
+
+
+
+        #pass #Don't forget to remove this line once implemented
 
     def delete(self) -> None:
         """
-        Elimina el modelo de la base de datos
+        Deletes the model from the database.
         """
         if '_id' in self._data:
             self._db.delete_one({'_id': self._data['_id']})
@@ -232,33 +261,33 @@ class Model:
         pass
 
     @classmethod
-    def init_class(cls, db_collection: pymongo.collection.Collection, indexes:dict[str,str], required_vars: set[str], admissible_vars: set[str]) -> None:
+    def init_class(cls, db_collection: pymongo.collection.Collection, indexes:dict[str,str], required_vars: set[str], admissible_vars: set[str], location_var : None) -> None:
         """ 
-        Inicializa los atributos de clase en la inicializacion del sistema.
-        Aqui se deben inicializar o asegurar los indices. Tambien se puede
-        alguna otra inicialización/comprobaciones o cambios adicionales
-        que estime el alumno.
+        Initializes class attributes during system initialization.
+        Indexes should be initialized or verified here. Any other
+        initialization, checks, or additional changes deemed
+        appropriate by the student may also be performed.
 
         Parameters
         ----------
             db_collection : pymongo.collection.Collection
-                Conexion a la collecion de la base de datos.
+                Connection to the database collection.
             indexes: Dict[str,str]
-                Set de indices y tipo de indices para la coleccion
+                Set of indexes and index types for the collection.
             required_vars : set[str]
-                Set de atributos requeridos por el modelo
+                Set of attributes required by the model.
             admissible_vars : set[str] 
-                Set de atributos admitidos por el modelo
+                Set of attributes accepted by the model.
         """
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
         # TODO
-        # Recorrer indexes y crear cada índice segun su tipo: 'unique', 'asc'
-        # y 'geosphere'. Comparar el tipo por igualdad, no con el operador 'in'.
-        # Ojo con el índice geoespacial: save() guarda el GeoJSON Point en
-        # <campo>_loc, luego el índice 2dsphere va sobre <campo>_loc, mientras
-        # que _location_var debe guardar el nombre del campo base.
+        # Iterate through indexes and create each one based on its type: 'unique', 'asc',
+        # or 'geosphere'. Compare the type for equality, not using the 'in' operator.
+        # Pay attention to the geospatial index: save() stores the GeoJSON Point in
+        # <field>_loc, so the 2dsphere index is applied to <field>_loc, whereas
+        # _location_var must store the name of the base field.
 
 
 class ModelCursor:
@@ -307,37 +336,52 @@ class ModelCursor:
         pass #No olvidar eliminar esta linea una vez implementado
 
 
-def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
+def initApp(definitions_path: str = "./models_test.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
     """ 
-    Declara las clases que heredan de Model para cada uno de los 
-    modelos de las colecciones definidas en definitions_path.
-    Inicializa las clases de los modelos proporcionando los indices y 
-    atributos admitidos y requeridos para cada una de ellas y la conexión a la
-    collecion de la base de datos.
+    Declare the classes that inherit from Model for each of
+    the models belonging to the collections defined in 
+    `definitions_path`. Initialize the model classes by 
+    providing the supported and required indexes and attributes
+    for each, as well as the connection to the database collection.
     
     Parameters
     ----------
         definitions_path : str
-            ruta al fichero de definiciones de modelos
+            path to the model definitions file
         mongodb_uri : str
-            uri de conexion a la base de datos
+            database connection URI
         db_name : str
-            nombre de la base de datos
+            database name
     """
     #TODO
-    # Inicializar base de datos
+    # Initialise the database
+    client = pymongo.MongoClient(mongodb_uri)
+    db = client[db_name]
 
     #TODO
-    # Declarar tantas clases modelo colecciones existan en la base de datos
-    # Leer el fichero de definiciones de modelos para obtener las colecciones,
-    # indices y los atributos admitidos y requeridos para cada una de ellas.
-    # Ejemplo de declaracion de modelo para colecion llamada MiModelo
-    scope["MiModelo"] = type("MiModelo", (Model,),{})
-    # La clase se declara en tiempo de ejecucion y queda en scope, que no tiene
-    # por que ser el espacio de nombres global: las pruebas le pasan su propio
-    # diccionario. Por eso se inicializa a traves de scope y no por su nombre,
-    # que ahi todavia no existe.
-    scope["MiModelo"].init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
+    # Declare as many model classes as there are collections in the database
+    # Read the model definition file to obtain the collections,
+    with open(definitions_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    # indexes, and the allowed and required attributes for each of them.
+    # Example of a model declaration for a collection named MiModelo
+    #scope["MiModelo"] = type("MiModelo", (Model,),{})
+    for model_name, model_info in config.items():
+        name = model_name
+        required_vars = model_info.get("required_vars", [])
+        admissible_vars = model_info.get("admissible_vars", [])
+        indexes = model_info.get("indexes", {})
+        location_var = model_info.get("location_var", None)
+
+        scope[name] = type(name, (Model,),{})
+
+        # The class is declared at runtime and exists within a specific scope—which
+        # need not be the global namespace, as the tests pass it their own
+        # dictionary. That is why it is initialized via the scope rather than
+        # by name, since the name does not yet exist at that point.
+        #scope["MiModelo"].init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
+        scope[name].init_class(db_collection=db[name], indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars, location_var=location_var)
 
 if __name__ == '__main__':
     
