@@ -222,24 +222,12 @@ class Model:
             del self._data['_id']
     
     @classmethod
-    def find(cls, filter: dict[str, str | dict]) -> Any:
-        """ 
-        Utiliza el metodo find de pymongo para realizar una consulta
-        de lectura en la BBDD.
-        find debe devolver un cursor de modelos ModelCursor
-
-        Parameters
-        ----------
-            filter : dict[str, str | dict]
-                diccionario con el criterio de busqueda de la consulta
-        Returns
-        -------
-            ModelCursor
-                cursor de modelos
-        """ 
-        #TODO
-        # cls es el puntero a la clase
-        pass #No olvidar eliminar esta linea una vez implementado
+    def find(cls, filter: dict[str, str | dict]) -> "ModelCursor":
+        """
+        Uses pymongo's find to run a read query on the DB.
+        Returns a ModelCursor of model instances.
+        """
+        return ModelCursor(cls, cls._db.find(filter))
 
     @classmethod
     def aggregate(cls, pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor:
@@ -362,17 +350,17 @@ class ModelCursor:
         """
         self.model = model_class
         self.cursor = cursor
-    
+
     def __iter__(self) -> Generator:
         """
-        Devuelve un iterador que recorre los elementos del cursor
-        y devuelve los documentos en forma de objetos modelo.
-        Utilizar yield para generar el iterador
-        Utilizar la funcion next para obtener el siguiente documento del cursor
-        Utilizar alive para comprobar si existen mas documentos.
+        Iterates over the pymongo cursor and yields each document
+        as a model object.
         """
-        #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        while self.cursor.alive:
+            doc = next(self.cursor, None)
+            if doc is None:
+                break
+            yield self.model(**doc)
 
 
 def initApp(definitions_path: str = "./models_test.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
