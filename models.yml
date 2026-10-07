@@ -39,11 +39,14 @@ Venue:
     - address
     - total capacity
     - area
+    - venueid
   admissible_vars:
+    - venueid
     - number_seats
     - available services
   unique_indexes:
     - name
+    - venueid
   regular_indexes:
     - total capacity
     - area
@@ -55,22 +58,24 @@ Artist:
   required_vars:
     - name
     - genres
+    - artistid
   admissible_vars:
     - origin
     - started_year
   unique_indexes:
     - name
+    - artistid
   regular_indexes:
     - genres
     - origin
     - started_year
-  location_index: ?
+  location_index: venueid
   
 #Event
 Event:
   required_vars:
     - title
-    - venue
+    - venueid
     - date
     - time
   admissible_vars:
@@ -83,10 +88,10 @@ Event:
     - participating_artists
     - price_area
     - tickets_sold
-    - venue
+    - venueid
     - date
     - time
-  location_index: ?
+  location_index: venueid
 
 #Attendee
 Attendee:
